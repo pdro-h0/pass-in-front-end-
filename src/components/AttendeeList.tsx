@@ -11,35 +11,113 @@ import Table from "./table/Table";
 import TableHeader from "./table/TableHeader";
 import TableCells from "./table/TableCells";
 import TableRow from "./table/TableRow";
-import { ChangeEvent, useState } from "react";
-import { attendees } from "../data/attendees";
+import { ChangeEvent, useEffect, useState } from "react";
+// import { attendees } from "../data/attendees";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+interface Attendee {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  checkedInAt: string | null;
+}
+
 const AttendeeList = () => {
-  const [search, setSearch] = useState<string>("");
-  const [page, setPage] = useState<number>(1);
+  const [search, setSearch] = useState<string>(() => {
+    const url = new URL(window.location.toString());
+
+    if (url.searchParams.has("search")) {
+      return url.searchParams.get("search") ?? "";
+    } else {
+      return "";
+    }
+  });
+  const [page, setPage] = useState<number>(() => {
+    const url = new URL(window.location.toString());
+
+    if (url.searchParams.has("page")) {
+      return Number(url.searchParams.get("page"));
+    } else {
+      return 1;
+    }
+  });
+
+  // const [total, setTotal] = useState<number>(0);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
 
   const totalPages = Math.ceil(attendees.length / 10);
 
-  const goToNextPage = () =>{
-    setPage((prevPage) => prevPage + 1 )
-  }
+  useEffect(() => {
+    const url = new URL(
+      "http://localhost:3333/event/81fc59e6-cd5c-4444-8cbe-3860f8499b47/attendees"
+    );
 
-  const goToPrevPage = () =>{
-    setPage((prevPage) => prevPage - 1 )
-  }
+    url.searchParams.set("pageIndex", String(page - 1));
 
-  const goToFirstPage = () =>{
-    setPage(1)
-  }
+    if (search.length > 0) {
+      url.searchParams.set("query", search);
+    }
 
-  const goToLastPage = () =>{
-    setPage(totalPages)
-  }
+    fetch(url)
+      .then((response) => response.json())
+      .then((data) => {
+        setAttendees(data.attendees);
+        // console.log(data);
+        // setTotal(data.total);
+      });
+  }, [page, search]);
+
+  const setCurrentSearch = (search: string) => {
+    const url = new URL(window.location.toString());
+
+    url.searchParams.set("search", search);
+
+    window.history.pushState({}, "", url);
+
+    setSearch(search);
+  };
+
+  const setCurrentPage = (page: number) => {
+    const url = new URL(window.location.toString());
+
+    url.searchParams.set("page", String(page));
+
+    window.history.pushState({}, "", url);
+
+    setPage(page);
+  };
+
+  const goToNextPage = () => {
+    // setPage((prevPage) => prevPage + 1);
+
+    setCurrentPage(page + 1);
+  };
+
+  const goToPrevPage = () => {
+    // setPage((prevPage) => prevPage - 1);
+
+    setCurrentPage(page - 1);
+  };
+
+  const goToFirstPage = () => {
+    // setPage(1);
+
+    setCurrentPage(1);
+  };
+
+  const goToLastPage = () => {
+    // setPage(totalPages);
+
+    setCurrentPage(totalPages);
+  };
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
-    setSearch(event.target.value);
+    // setSearch(event.target.value);
+    setCurrentSearch(event.target.value);
+
+    // setPage(1);
   };
 
   return (
@@ -51,7 +129,8 @@ const AttendeeList = () => {
           <input
             onChange={handleSearch}
             type="text"
-            className="flex-1 bg-transparent outline-none border-0 text-sm p-0"
+            value={search}
+            className="flex-1 bg-transparent outline-none border-0 text-sm p-0 focus:ring-0"
             placeholder="Buscar participantes..."
           />
         </div>
@@ -100,6 +179,7 @@ const AttendeeList = () => {
                 <TableCells className="py-3 px-4 text-sm  text-left text-zinc-300">
                   <input
                     type="checkbox"
+                    checked={attendee.checkedInAt !== null}
                     className="size-4 checked:text-orange-400 bg-black/20 rounded border border-white/10"
                   />
                 </TableCells>
@@ -119,10 +199,16 @@ const AttendeeList = () => {
                   })}
                 </TableCells>
                 <TableCells>
-                  {formatDistanceToNow(attendee.checkedInAt, {
-                    locale: ptBR,
-                    addSuffix: true,
-                  })}
+                  {attendee.checkedInAt !== null ? (
+                    formatDistanceToNow(attendee.checkedInAt, {
+                      locale: ptBR,
+                      addSuffix: true,
+                    })
+                  ) : (
+                    <p className="text-zinc-400">
+                      <i>Não fez check-in</i>
+                    </p>
+                  )}
                 </TableCells>
                 <TableCells>
                   <IconButton transparent={true}>
@@ -137,7 +223,7 @@ const AttendeeList = () => {
         <tfoot>
           <tr>
             <TableCells colSpan={3}>
-              Mostrando 10 de {attendees.length} items
+              Mostrando {attendees.length} de {attendees.length} items
             </TableCells>
             <TableCells
               className="py-3 px-4 text-sm  text-right text-zinc-300"
@@ -155,10 +241,16 @@ const AttendeeList = () => {
                   <IconButton onClick={goToPrevPage} disabled={page === 1}>
                     <ChevronLeft className="size-4" />
                   </IconButton>
-                  <IconButton onClick={goToNextPage} disabled={page === totalPages}>
+                  <IconButton
+                    onClick={goToNextPage}
+                    disabled={page === totalPages}
+                  >
                     <ChevronRight className="size-4" />
                   </IconButton>
-                  <IconButton onClick={goToLastPage} disabled={page === totalPages}>
+                  <IconButton
+                    onClick={goToLastPage}
+                    disabled={page === totalPages}
+                  >
                     <ChevronsRight className="size-4" />
                   </IconButton>
                 </div>
